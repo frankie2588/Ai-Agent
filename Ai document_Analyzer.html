@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 50px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+            margin-bottom: 20px;
+        }
+        .upload-area:hover { 
+            background: #e8eaff; 
+            border-color: #764ba2;
+            transform: translateY(-2px);
+        }
+        .upload-icon { font-size: 60px; margin-bottom: 15px; }
+        input[type="file"] { display: none; }
+        .file-name { 
+            margin-top: 15px; 
+            color: #667eea; 
+            font-weight: 600;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: translateY(-2px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .loading { 
+            display: none; 
+            text-align: center; 
+            margin-top: 20px;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        .results {
+            display: none;
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .results h2 { 
+            color: #667eea; 
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .result-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border-left: 5px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .result-label { 
+            font-weight: 700; 
+            color: #333; 
+            margin-bottom: 10px; 
+            font-size: 13px; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .result-value { 
+            color: #555; 
+            line-height: 1.8;
+            font-size: 15px;
+        }
+        .error { 
+            background: #fff5f5; 
+            border-left-color: #e53e3e; 
+        }
+        .error .result-value { color: #c53030; }
+        .warning {
+            background: #fffbf0;
+            border-left-color: #f6ad55;
+        }
+        ul { 
+            margin: 10px 0 0 0; 
+            padding-left: 20px;
+        }
+        li { 
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 5px;
+        }
+        .badge-success { background: #c6f6d5; color: #22543d; }
+        .badge-warning { background: #feebc8; color: #7c2d12; }
+        .badge-info { background: #bee3f8; color: #2c5282; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 AI Document Analyzer</h1>
+        <p class="subtitle">Designed By Franklin • Upload any document for instant analysis</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <p style="font-size: 18px; font-weight: 600; margin: 10px 0; color: #333;">
+                Click to upload or drag & drop
+            </p>
+            <p style="font-size: 13px; color: #999; margin: 5px 0;">
+                Supported: PDF, Word, Text, Images (PNG, JPG)
+            </p>
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg">
+            <div class="file-name" id="fileName"></div>
+        </div>
+        
+        <button id="uploadBtn" onclick="uploadFile()" disabled>
+             Analyze Document
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="color: #667eea; font-weight: 600; font-size: 16px;">
+                Analyzing your document...
+            </p>
+            <p style="color: #999; font-size: 13px; margin-top: 5px;">
+                This may take a few seconds
+            </p>
+        </div>
+        
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        
+        const WEBHOOK_URL = 'https://franklin254.app.n8n.cloud/webhook/document-analysis';
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        
+        let selectedFile = null;
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', function() {
+            selectedFile = this.files[0];
+            if (selectedFile) {
+                fileName.textContent = `✓ ${selectedFile.name} (${formatFileSize(selectedFile.size)})`;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#e8eaff';
+            uploadArea.style.borderColor = '#764ba2';
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '#f8f9ff';
+            uploadArea.style.borderColor = '#667eea';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#f8f9ff';
+            uploadArea.style.borderColor = '#667eea';
+            
+            selectedFile = e.dataTransfer.files[0];
+            if (selectedFile) {
+                fileInput.files = e.dataTransfer.files;
+                fileName.textContent = `✓ ${selectedFile.name} (${formatFileSize(selectedFile.size)})`;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        async function uploadFile() {
+            if (!selectedFile) return;
+            
+            uploadBtn.disabled = true;
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            
+            const formData = new FormData();
+            formData.append('data', selectedFile);
+            
+            try {
+                const response = await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                if (data.success && data.analysis) {
+                    displayResults(data.analysis, data.metadata);
+                } else if (data.analysis) {
+                    displayResults(data.analysis);
+                } else {
+                    displayError(data.error || 'Analysis failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                displayError('Failed to connect to analysis service: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        function displayResults(analysis, metadata) {
+            let html = '<h2>✅ Analysis Complete</h2>';
+            
+            // Document Type
+            html += `<div class="result-item">
+                <div class="result-label">📋 Document Type</div>
+                <div class="result-value">
+                    <span class="badge badge-info">${analysis.document_type || 'Unknown'}</span>
+                </div>
+            </div>`;
+            
+            // Summary
+            if (analysis.summary) {
+                html += `<div class="result-item">
+                    <div class="result-label">📝 Summary</div>
+                    <div class="result-value">${analysis.summary}</div>
+                </div>`;
+            }
+            
+            // Key Points
+            if (analysis.key_points && analysis.key_points.length > 0) {
+                html += `<div class="result-item">
+                    <div class="result-label">🔑 Key Points</div>
+                    <ul class="result-value">
+                        ${analysis.key_points.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+            
+            // Entities
+            if (analysis.extracted_entities) {
+                const entities = analysis.extracted_entities;
+                let hasEntities = false;
+                let entitiesHtml = '<div class="result-item"><div class="result-label">🏷️ Extracted Entities</div><div class="result-value">';
+                
+                if (entities.people && entities.people.length > 0) {
+                    hasEntities = true;
+                    entitiesHtml += `<p><strong>👤 People:</strong> ${entities.people.map(p => `<span class="badge badge-success">${p}</span>`).join('')}</p>`;
+                }
+                if (entities.organizations && entities.organizations.length > 0) {
+                    hasEntities = true;
+                    entitiesHtml += `<p><strong>🏢 Organizations:</strong> ${entities.organizations.map(o => `<span class="badge badge-info">${o}</span>`).join('')}</p>`;
+                }
+                if (entities.dates && entities.dates.length > 0) {
+                    hasEntities = true;
+                    entitiesHtml += `<p><strong>📅 Dates:</strong> ${entities.dates.map(d => `<span class="badge badge-info">${d}</span>`).join('')}</p>`;
+                }
+                if (entities.amounts && entities.amounts.length > 0) {
+                    hasEntities = true;
+                    entitiesHtml += `<p><strong>💰 Amounts:</strong> ${entities.amounts.map(a => `<span class="badge badge-success">${a}</span>`).join('')}</p>`;
+                }
+                if (entities.locations && entities.locations.length > 0) {
+                    hasEntities = true;
+                    entitiesHtml += `<p><strong>📍 Locations:</strong> ${entities.locations.map(l => `<span class="badge badge-info">${l}</span>`).join('')}</p>`;
+                }
+                
+                entitiesHtml += '</div></div>';
+                if (hasEntities) html += entitiesHtml;
+            }
+            
+            // Risks/Red Flags
+            if (analysis.risks_or_red_flags && analysis.risks_or_red_flags.length > 0) {
+                html += `<div class="result-item error">
+                    <div class="result-label">⚠️ Risks / Red Flags</div>
+                    <ul class="result-value">
+                        ${analysis.risks_or_red_flags.map(risk => `<li>${risk}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+            
+            // Missing Information
+            if (analysis.missing_information && analysis.missing_information.length > 0) {
+                html += `<div class="result-item warning">
+                    <div class="result-label">❓ Missing Information</div>
+                    <ul class="result-value">
+                        ${analysis.missing_information.map(info => `<li>${info}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+            
+            // Recommendation
+            if (analysis.recommendation) {
+                html += `<div class="result-item" style="border-left-color: #48bb78;">
+                    <div class="result-label">💡 Recommendation</div>
+                    <div class="result-value">${analysis.recommendation}</div>
+                </div>`;
+            }
+            
+            // Metadata
+            if (metadata) {
+                html += `<div style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; font-size: 12px; color: #718096;">
+                    <strong>Analysis Info:</strong> Processed at ${new Date(metadata.processed_at).toLocaleString()} 
+                    | Model: ${metadata.model} | Provider: ${metadata.provider}
+                </div>`;
+            }
+            
+            results.innerHTML = html;
+            results.style.display = 'block';
+        }
+        
+        function displayError(message) {
+            results.innerHTML = `
+                <div class="result-item error">
+                    <div class="result-label">❌ Error</div>
+                    <div class="result-value">
+                        ${message}
+                        <p style="margin-top: 10px; font-size: 13px;">
+                            Please try again or contact support if the problem persists.
+                        </p>
+                    </div>
+                </div>`;
+            results.style.display = 'block';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
